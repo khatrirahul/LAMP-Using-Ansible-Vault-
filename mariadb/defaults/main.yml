@@ -1,0 +1,5 @@
+---
+# defaults file for mariadb
+
+db_user_pass_dbname: "lamp"
+

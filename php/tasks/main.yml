@@ -1,0 +1,83 @@
+---
+# tasks file for php
+#
+- name: Install remi repo
+  yum:
+    name: http://rpms.remirepo.net/enterprise/remi-release-7.rpm
+    state: present
+
+- name: Enable remi repo
+  shell: yum-config-manager --enable remi-php70
+
+- name: install php pkg
+  yum:
+    name: "{{ item }}"
+    state: latest
+  with_items:
+    - php
+    - php-mcrypt
+    - php-cli
+    - php-gd
+    - php-curl
+    - php-mysql
+    - php-ldap
+    - php-zip
+    - php-fileinfo
+
+- name: wget for wordpress
+  get_url: 
+    url: https://wordpress.org/latest.zip
+    dest: "{{ wordpress_destination_files }}"
+
+- name: unarchive wordpress.zip
+  unarchive:
+    src: "{{ wordpress_destination_files }}/wordpress-5.2.2.zip"
+    dest: "{{ wordpress_destination_files }}"
+
+- name: copy wordpress files to html
+  synchronize: 
+    src: "{{ wordpress_destination_files }}/wordpress/" 
+    dest: "{{ wordpress_destination_files }}"
+
+- name: Set permissions
+  file:
+    path: "{{ wordpress_destination_files }}"
+    owner: apache
+    group: apache
+    state: directory
+    recurse: yes
+    mode: 0777
+
+- name: mv wp config 
+  command: mv /var/www/html/wp-config-sample.php /var/www/html/wp-config.php
+
+- name: enter database
+  replace:
+    path: "{{ wordpress_destination_files }}/wp-config.php"
+    regexp: "{{item.1}}"
+    replace: "{{item.2}}"
+  ignore_errors: yes
+  with_items:
+    - { 1: database_name_here, 2: "{{ db }}" }
+    - { 1: username_here, 2: "{{ db }}" } 
+    - { 1: password_here, 2: "{{ db }}" }
+
+- name: installation of wordpress steps
+  get_url:
+    url:  "https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
+    dest: /bin/wp
+    mode: 0777
+
+- name: download wordpress from url
+  shell: 'wp core download --allow-root'
+  ignore_errors: yes
+
+- name: Create a wp-config.php file
+  shell:  "wp core config --dbname=lamp --dbuser=lamp --dbpass=lamp --dbhost=localhost --dbprefix=wp_ --allow-root"
+  ignore_errors: yes
+  notify: service httpd restart
+
+- name: Run the installation           
+  shell: 'wp core install --url=localhost --title=lamp --admin_user=lamp --admin_password=lamp --admin_email=lamp@lamp.com --allow-root'
+
+    
